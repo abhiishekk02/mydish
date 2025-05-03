@@ -16,11 +16,14 @@ export default function LoginPage(params) {
       return;
     }
     try {
-      const response = await axios.post("http://localhost:3000/login", {
-        email,
-        password,
-      });
+      const response = await axios.post(
+        "http://localhost:3000/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } } // ADD THIS
+      );
+
       alert(response.data.message);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
       navigate("/home");
     } catch (error) {
       console.error(error);

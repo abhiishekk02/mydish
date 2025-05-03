@@ -1,19 +1,49 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import img7 from "../assets/img7.jpg";
 import img8 from "../assets/img8.jpg";
 import img9 from "../assets/img9.jpg";
 import img10 from "../assets/img10.jpg";
 import img11 from "../assets/img11.jpg";
+import img12 from "../assets/img12.jpg";
 
-export default function HomePage({ user }) {
+export default function HomePage() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [recipes, setRecipes] = useState([]);
 
   useEffect(() => {
-    if (!user) {
+    const fetchRecipes = async () => {
+      try {
+        const res = await axios.get("/recipes");
+        const recipes = res.data;
+
+        // Shuffle the array randomly
+        const shuffledRecipes = recipes.sort(() => 0.5 - Math.random());
+
+        setRecipes(shuffledRecipes);
+      } catch (error) {
+        console.error("Failed to fetch recipes", error);
+      }
+    };
+
+    fetchRecipes();
+  }, []);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser && storedUser !== "undefined") {
+      setUser(JSON.parse(storedUser));
+    } else {
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [navigate]);
+
+  if (!user) {
+    // Optional: Prevents rendering until user is loaded
+    return null;
+  }
 
   return (
     <>
@@ -84,7 +114,11 @@ export default function HomePage({ user }) {
         </p>
         <div className="row">
           <div className="col-md-3">
-            <div className="card">
+            <div
+              className="card"
+              onClick={() => navigate("/cuisine/Indian")}
+              style={{ cursor: "pointer" }}
+            >
               <img src={img8} className="card-img-top" alt="..." />
               <div className="card-body">
                 <h5 className="card-title">Indian</h5>
@@ -95,7 +129,11 @@ export default function HomePage({ user }) {
             </div>
           </div>
           <div className="col-md-3 ">
-            <div className="card">
+            <div
+              className="card"
+              onClick={() => navigate("/cuisine/Italian")}
+              style={{ cursor: "pointer" }}
+            >
               <img
                 src={img9}
                 className="card-img-top "
@@ -111,7 +149,11 @@ export default function HomePage({ user }) {
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card">
+            <div
+              className="card"
+              onClick={() => navigate("/cuisine/Chinese")}
+              style={{ cursor: "pointer" }}
+            >
               <img src={img10} className="card-img-top" alt="..." />
               <div className="card-body">
                 <h5 className="card-title">Chinese</h5>
@@ -122,7 +164,11 @@ export default function HomePage({ user }) {
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card">
+            <div
+              className="card"
+              onClick={() => navigate("/cuisine/Mexican")}
+              style={{ cursor: "pointer" }}
+            >
               <img src={img11} className="card-img-top" alt="..." />
               <div className="card-body">
                 <h5 className="card-title">Mexican</h5>
@@ -132,6 +178,98 @@ export default function HomePage({ user }) {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="container my-5" style={{ position: "relative" }}>
+        <img
+          src={img12}
+          alt="Add Recipe Banner"
+          style={{
+            width: "100%",
+            height: "240px",
+            objectFit: "cover",
+            borderRadius: "16px",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "20%",
+            left: "5%",
+            fontSize: "24px",
+            fontWeight: "bold",
+            color: "white",
+            textShadow: "1px 1px 6px rgba(0, 0, 0, 0.7)",
+          }}
+        >
+          Add a Recipe
+          <br />
+          Share Your Recipe, Inspire Others!
+        </div>
+        <button
+          onClick={() => navigate("/add-recipe")}
+          className="btn btn-dark"
+          style={{
+            position: "absolute",
+            top: "65%",
+            left: "5%",
+            padding: "10px 20px",
+            borderRadius: "20px",
+            fontWeight: "bold",
+          }}
+        >
+          Add Now
+        </button>
+      </div>
+
+      <div className="container my-5">
+        <h3 className="fw-bold mb-4" style={{ color: "#2A2E81" }}>
+          Explore Random Recipes
+        </h3>
+        <div className="row">
+          {recipes.length === 0 ? (
+            <p>No recipes available.</p>
+          ) : (
+            recipes.slice(0, 8).map(
+              (
+                recipe // show first 8 recipes
+              ) => (
+                <div className="col-md-3 mb-4" key={recipe.RecipeID}>
+                  <div
+                    className="card h-100"
+                    style={{
+                      cursor: "pointer",
+                      border: "none",
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                    }}
+                    onClick={() => navigate(`/recipe/${recipe.RecipeID}`)}
+                  >
+                    <img
+                      src={recipe.ImageURL}
+                      className="card-img-top"
+                      alt={recipe.Name}
+                      style={{
+                        height: "200px",
+                        objectFit: "cover",
+                        borderTopLeftRadius: "10px",
+                        borderTopRightRadius: "10px",
+                      }}
+                    />
+                    <div className="card-body">
+                      <h5 className="card-title">{recipe.Name}</h5>
+                      <p
+                        className="card-text"
+                        style={{ fontSize: "14px", color: "#777" }}
+                      >
+                        Prep Time: {recipe.PrepTime} mins
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            )
+          )}
         </div>
       </div>
     </>

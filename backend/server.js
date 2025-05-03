@@ -5,7 +5,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const app = express();
 app.use(express.json());
-app.use(cors()); // Allow frontend to call backend
+app.use(cors());
 app.use(morgan("dev"));
 
 // Database connection
@@ -62,7 +62,14 @@ app.post("/login", (req, res) => {
       if (!isPasswordMatch)
         return res.status(401).send({ message: "Incorrect password" });
 
-      res.send({ message: "Login successful" });
+      res.send({
+        message: "Login successful",
+        user: {
+          UserID: user.UserID,
+          Username: user.Username,
+          Email: user.Email,
+        },
+      });
     }
   );
 });
@@ -100,9 +107,215 @@ app.get("/users/:id", (req, res) => {
   );
 });
 
-const PORT = process.env.PORT || 3000;
-const HOST = "127.0.0.1"; // 👈 Bind to localhost only
+app.post("/add-recipe", (req, res) => {
+  const {
+    recipeName,
+    description,
+    ingredients,
+    prepTime,
+    cookTime,
+    servings,
+    imageUrl,
+    cuisine, // ✅ new field
+    userId,
+  } = req.body;
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server running at http://${HOST}:${PORT}`);
+  if (
+    !recipeName ||
+    !description ||
+    !ingredients ||
+    !prepTime ||
+    !cookTime ||
+    !servings ||
+    !imageUrl ||
+    !cuisine ||
+    !userId
+  ) {
+    return res.status(400).send({ message: "All fields are required." });
+  }
+
+  const insertRecipeQuery = `
+    INSERT INTO Recipe (Name, Description, PrepTime, CookTime, Servings, ImageURL, Cuisine, UserID)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    insertRecipeQuery,
+    [
+      recipeName,
+      description,
+      prepTime,
+      cookTime,
+      servings,
+      imageUrl,
+      cuisine,
+      userId,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send({ message: "Error adding recipe." });
+      }
+
+      const recipeId = result.insertId;
+
+      const ingredientNames = ingredients.split(",").map((item) => item.trim());
+      if (ingredientNames.length === 0) {
+        return res.send({
+          message: "Recipe added successfully without ingredients.",
+        });
+      }
+
+      ingredientNames.forEach((ingredientName) => {
+        if (!ingredientName) return;
+
+        const checkIngredientQuery =
+          "SELECT IngredientID FROM Ingredient WHERE Name = ?";
+        db.query(
+          checkIngredientQuery,
+          [ingredientName],
+          (checkErr, checkResults) => {
+            if (checkErr) return console.error(checkErr);
+
+            if (checkResults.length > 0) {
+              const ingredientId = checkResults[0].IngredientID;
+              linkIngredientToRecipe(recipeId, ingredientId);
+            } else {
+              const insertIngredientQuery =
+                "INSERT INTO Ingredient (Name) VALUES (?)";
+              db.query(
+                insertIngredientQuery,
+                [ingredientName],
+                (insertErr, insertResult) => {
+                  if (insertErr) return console.error(insertErr);
+                  const newIngredientId = insertResult.insertId;
+                  linkIngredientToRecipe(recipeId, newIngredientId);
+                }
+              );
+            }
+          }
+        );
+      });
+
+      res.send({ message: "Recipe and ingredients added successfully!" });
+    }
+  );
+
+  function linkIngredientToRecipe(recipeId, ingredientId) {
+    const linkQuery = `
+      INSERT INTO RecipeIngredient (RecipeID, IngredientID, Quantity, Unit)
+      VALUES (?, ?, 1, 'unit') 
+    `;
+    db.query(linkQuery, [recipeId, ingredientId], (linkErr) => {
+      if (linkErr) console.error(linkErr);
+    });
+  }
+});
+app.get("/recipes/user/:userId", (req, res) => {
+  const userId = req.params.userId;
+
+  const query = `
+    SELECT RecipeID, Name, Description, PrepTime, CookTime, Servings, ImageURL, Cuisine
+    FROM Recipe
+    WHERE UserID = ?
+  `;
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching user's recipes:", err);
+      return res.status(500).send({ message: "Error fetching recipes." });
+    }
+
+    if (results.length === 0) {
+      return res
+        .status(404)
+        .send({ message: "No recipes found for this user." });
+    }
+
+    res.status(200).json(results);
+  });
+});
+
+// API to get all recipes
+app.get("/recipes", (req, res) => {
+  const { cuisine } = req.query;
+
+  let query = "SELECT * FROM Recipe";
+  const queryParams = [];
+
+  if (cuisine) {
+    query += " WHERE Cuisine = ?";
+    queryParams.push(cuisine);
+  }
+
+  db.query(query, queryParams, (err, results) => {
+    if (err) {
+      console.error("Error fetching recipes:", err);
+      return res.status(500).send({ message: "Error fetching recipes" });
+    }
+    res.status(200).json(results);
+  });
+});
+
+app.get("/recipe/:id", (req, res) => {
+  const recipeId = req.params.id;
+  const query = `
+    SELECT r.*, u.Username 
+    FROM Recipe r
+    JOIN User u ON r.UserID = u.UserID
+    WHERE r.RecipeID = ?
+  `;
+
+  db.query(query, [recipeId], (err, results) => {
+    if (err) return res.status(500).send({ message: "Error fetching recipe" });
+    if (results.length === 0)
+      return res.status(404).send({ message: "Recipe not found" });
+
+    const recipe = results[0];
+
+    // Now get ingredients
+    const ingQuery = `
+      SELECT i.Name FROM RecipeIngredient ri
+      JOIN Ingredient i ON ri.IngredientID = i.IngredientID
+      WHERE ri.RecipeID = ?
+    `;
+    db.query(ingQuery, [recipeId], (err2, ingResults) => {
+      if (err2)
+        return res.status(500).send({ message: "Error loading ingredients" });
+      recipe.ingredients = ingResults;
+      res.send(recipe);
+    });
+  });
+});
+
+app.get("/recipes", async (req, res) => {
+  const cuisine = req.query.cuisine;
+  console.log("Fetching recipes with cuisine:", cuisine);
+
+  let query = "SELECT * FROM Recipe";
+  const queryParams = [];
+
+  if (cuisine) {
+    query += " WHERE Cuisine = ?";
+    queryParams.push(cuisine);
+  }
+
+  db.query(query, queryParams, (err, results) => {
+    if (err) {
+      console.error("Error fetching recipes:", err);
+      return res.status(500).send("Error fetching recipes");
+    }
+    res.json(results);
+  });
+});
+
+// Simple test API
+app.get("/test", (req, res) => {
+  res.send({ message: "Server is working properly!" });
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
