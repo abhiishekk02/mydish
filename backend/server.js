@@ -8,15 +8,14 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
 
-// Database connection
 const db = mysql.createConnection({
-  host: "34.136.223.174", // Public IP you provided
-  user: "adminuser", // e.g., 'root' or 'adminuser'
+  host: "34.136.223.174", 
+  user: "adminuser", 
   password: "admin123",
   database: "RecipeAppDB",
 });
 
-// API to handle Signup
+
 app.post("/signup", async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -44,7 +43,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// API to handle Login
+
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
@@ -74,7 +73,7 @@ app.post("/login", (req, res) => {
   );
 });
 
-// API to get all users
+
 app.get("/users", (req, res) => {
   db.query("SELECT UserID, Username, Email FROM User", (err, results) => {
     if (err) {
@@ -85,7 +84,7 @@ app.get("/users", (req, res) => {
   });
 });
 
-// API to get a user by ID
+
 app.get("/users/:id", (req, res) => {
   const userId = req.params.id;
 
@@ -102,7 +101,7 @@ app.get("/users/:id", (req, res) => {
         return res.status(404).send({ message: "User not found" });
       }
 
-      res.send(results[0]); // Return the user data
+      res.send(results[0]); 
     }
   );
 });
@@ -116,7 +115,7 @@ app.post("/add-recipe", (req, res) => {
     cookTime,
     servings,
     imageUrl,
-    cuisine, // ✅ new field
+    cuisine, 
     userId,
   } = req.body;
 
@@ -236,7 +235,6 @@ app.get("/recipes/user/:userId", (req, res) => {
   });
 });
 
-// API to get all recipes
 app.get("/recipes", (req, res) => {
   const { cuisine } = req.query;
 
@@ -273,7 +271,6 @@ app.get("/recipe/:id", (req, res) => {
 
     const recipe = results[0];
 
-    // Now get ingredients
     const ingQuery = `
       SELECT i.Name FROM RecipeIngredient ri
       JOIN Ingredient i ON ri.IngredientID = i.IngredientID
@@ -308,8 +305,109 @@ app.get("/recipes", async (req, res) => {
     res.json(results);
   });
 });
+app.get("/search/suggestions", (req, res) => {
+  const { query } = req.query;
+  
+  if (!query || query.length < 2) {
+    return res.json({ suggestions: [] });
+  }
+  
+  const promises = [
+  
+    new Promise((resolve, reject) => {
+      db.query(
+        "SELECT DISTINCT Name as text, 'recipe' as type FROM Recipe WHERE Name LIKE ? LIMIT 5",
+        [`%${query}%`],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    }),
+    
+    new Promise((resolve, reject) => {
+      db.query(
+        "SELECT DISTINCT Name as text, 'ingredient' as type FROM Ingredient WHERE Name LIKE ? LIMIT 5",
+        [`%${query}%`],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    }),
+    
+    new Promise((resolve, reject) => {
+      db.query(
+        "SELECT DISTINCT Cuisine as text, 'cuisine' as type FROM Recipe WHERE Cuisine LIKE ? AND Cuisine IS NOT NULL LIMIT 5",
+        [`%${query}%`],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    })
+  ];
+  
+  Promise.all(promises)
+    .then((results) => {
+      const suggestions = results.flat().slice(0, 10);
+      res.json({ suggestions });
+    })
+    .catch((error) => {
+      console.error("Error getting search suggestions:", error);
+      res.status(500).json({ error: "Failed to get suggestions" });
+    });
+});
 
-// Simple test API
+app.get("/recipes/search", (req, res) => {
+  const { query, sortBy, sortOrder } = req.query;
+  
+  let sqlQuery = `
+    SELECT r.* 
+    FROM Recipe r
+    WHERE r.RecipeID IN (
+      SELECT DISTINCT r2.RecipeID
+      FROM Recipe r2
+      LEFT JOIN RecipeIngredient ri ON r2.RecipeID = ri.RecipeID
+      LEFT JOIN Ingredient i ON ri.IngredientID = i.IngredientID
+      WHERE (r2.Name LIKE ? OR r2.Description LIKE ? OR r2.Cuisine LIKE ? OR i.Name LIKE ?)
+    )
+  `;
+  
+  const params = [];
+  
+  if (query) {
+    params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
+  } else {
+    sqlQuery = `SELECT * FROM Recipe`;
+  }
+  
+  if (sortBy) {
+    const validSortColumns = ['Name', 'PrepTime', 'CookTime', 'CreatedAt'];
+    const validSortOrders = ['ASC', 'DESC'];
+    
+    const column = validSortColumns.includes(sortBy) ? sortBy : 'Name';
+    const order = validSortOrders.includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
+    
+    sqlQuery += ` ORDER BY ${column} ${order}`;
+  } else {
+    sqlQuery += ` ORDER BY Name ASC`;
+  }
+  
+  console.log("Executing search query:", sqlQuery);
+  console.log("With parameters:", params);
+  
+  db.query(sqlQuery, params, (err, results) => {
+    if (err) {
+      console.error("Error searching recipes:", err);
+      return res.status(500).send({ message: "Error searching recipes" });
+    }
+    
+    console.log(`Search for "${query}" returned ${results.length} unique recipes`);
+    res.status(200).json(results);
+  });
+});
+
 app.get("/test", (req, res) => {
   res.send({ message: "Server is working properly!" });
 });
