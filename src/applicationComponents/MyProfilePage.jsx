@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-
+import { useNavigate } from "react-router-dom";
 export default function MyProfilePage() {
   const [user, setUser] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -13,21 +14,57 @@ export default function MyProfilePage() {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
 
-      // Now fetch this user's recipes
-      axios
-        .get(`http://localhost:3000/recipes/user/${parsedUser.UserID}`)
-        .then((response) => {
-          setRecipes(response.data);
-        })
-        .catch((error) => {
-          console.error("Error fetching recipes:", error);
-        });
+      fetchUserRecipes(parsedUser.UserID);
     }
   }, []);
-
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    alert("Password change functionality coming soon!");
+    if (!currentPassword || !newPassword) {
+      return alert("Please fill in both password fields.");
+    }
+
+    try {
+      const res = await axios.put(
+        `http://localhost:3000/user/${user.UserID}/password`,
+        {
+          currentPassword,
+          newPassword,
+        }
+      );
+
+      alert(res.data.message);
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (error) {
+      console.error("Password update failed:", error);
+      alert(error.response?.data?.message || "Failed to update password.");
+    }
+  };
+
+  const fetchUserRecipes = (userId) => {
+    axios
+      .get(`http://localhost:3000/recipes/user/${userId}`)
+      .then((response) => {
+        setRecipes(response.data);
+      })
+      .catch((error) => {
+        console.error("Error fetching recipes:", error);
+      });
+  };
+
+  const handleDelete = (recipeId) => {
+    if (window.confirm("Are you sure you want to delete this recipe?")) {
+      axios
+        .delete(`http://localhost:3000/recipe/${recipeId}`)
+        .then(() => {
+          alert("Recipe deleted successfully.");
+          setRecipes(recipes.filter((r) => r.RecipeID !== recipeId));
+        })
+        .catch((error) => {
+          console.error("Failed to delete recipe:", error);
+          alert("Failed to delete recipe.");
+        });
+    }
   };
 
   return (
@@ -71,7 +108,11 @@ export default function MyProfilePage() {
         ) : (
           recipes.map((recipe) => (
             <div className="col-md-4 mb-4" key={recipe.RecipeID}>
-              <div className="card" style={{ width: "18rem" }}>
+              <div
+                className="card"
+                style={{ width: "18rem", cursor: "pointer" }}
+                onClick={() => navigate(`/recipe/${recipe.RecipeID}`)}
+              >
                 <img
                   src={recipe.ImageURL || "https://via.placeholder.com/150"}
                   className="card-img-top"
@@ -83,6 +124,15 @@ export default function MyProfilePage() {
                   <p className="card-text">
                     {recipe.Description.slice(0, 50)}...
                   </p>
+                  <button
+                    className="btn btn-sm btn-danger mt-2"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent navigation
+                      handleDelete(recipe.RecipeID);
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>

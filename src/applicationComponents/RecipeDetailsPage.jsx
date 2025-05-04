@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function RecipeDetailsPage() {
-  const { id } = useParams(); // recipeId from URL
+  const { id } = useParams();
   const navigate = useNavigate();
   const [recipe, setRecipe] = useState(null);
 
@@ -45,32 +45,62 @@ export default function RecipeDetailsPage() {
       />
 
       {/* Title and Author */}
-      <h2 className="fw-bold">{recipe.Name}</h2>
+      <h2 className="fw-bold mb-2">{recipe.Name}</h2>
       <p className="text-muted">By {recipe.Username || "Unknown"}</p>
 
       {/* Meta Info */}
       <div className="row my-3">
-        <div className="col-md-4">
+        <div className="col-md-3">
           <strong>Prep Time:</strong> {recipe.PrepTime} mins
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <strong>Cook Time:</strong> {recipe.CookTime} mins
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <strong>Servings:</strong> {recipe.Servings}
+        </div>
+        <div className="col-md-3">
+          <strong>Cuisine:</strong> {recipe.Cuisine}
         </div>
       </div>
 
       {/* Description */}
-      <p className="mt-3">{recipe.Description}</p>
+      <div className="mb-4">
+        <h5>Description</h5>
+        <p>{recipe.Description}</p>
+      </div>
+
+      {/* Diet Type and Nutrition */}
+      <div className="row mb-4">
+        <div className="col-md-6">
+          <h5>Diet Type</h5>
+          <p>{recipe.DietType || "N/A"}</p>
+        </div>
+        <div className="col-md-6">
+          <h5>Nutrition Info</h5>
+          <p>{recipe.Nutrition || "N/A"}</p>
+        </div>
+      </div>
 
       {/* Ingredients */}
-      <h5 className="mt-4">Ingredients:</h5>
-      <ul>
-        {recipe.ingredients?.map((item, index) => (
-          <li key={index}>{item.Name || item}</li>
-        ))}
-      </ul>
+      <div className="mb-4">
+        <h5>Ingredients</h5>
+        <ul>
+          {recipe.ingredients?.map((item, index) => (
+            <li key={index}>{item.Name || item}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Steps (optional placeholder for future) */}
+      {/* <div className="mb-4">
+        <h5>Steps</h5>
+        <ol>
+          {recipe.steps?.map((step, index) => (
+            <li key={index}>{step}</li>
+          ))}
+        </ol>
+      </div> */}
     </div>
   );
 }

@@ -15,6 +15,8 @@ export default function AddRecipePage() {
     servings: "",
     imageUrl: "",
     cuisine: "",
+    dietType: "",
+    nutrition: "",
   });
 
   const handleChange = (e) => {
@@ -172,6 +174,35 @@ export default function AddRecipePage() {
                 <option value="American">American</option>
                 <option value="Thai">Thai</option>
               </select>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-semibold">Diet Type</label>
+              <select
+                className="form-select"
+                name="dietType"
+                value={formData.dietType}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Diet Type</option>
+                <option value="Vegetarian">Vegetarian</option>
+                <option value="Vegan">Vegan</option>
+                <option value="Gluten-Free">Gluten-Free</option>
+                <option value="Keto">Keto</option>
+                <option value="Paleo">Paleo</option>
+                <option value="Non-Vegetarian">Non-Vegetarian</option>
+              </select>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-semibold">Nutrition Info</label>
+              <textarea
+                className="form-control"
+                name="nutrition"
+                value={formData.nutrition}
+                onChange={handleChange}
+                rows="3"
+                placeholder="e.g., 250 calories, 15g protein, etc."
+              ></textarea>
             </div>
             <div className="mb-3">
               <label className="form-label fw-semibold">Image URL</label>

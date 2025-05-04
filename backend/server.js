@@ -9,12 +9,11 @@ app.use(cors());
 app.use(morgan("dev"));
 
 const db = mysql.createConnection({
-  host: "34.136.223.174", 
-  user: "adminuser", 
+  host: "34.136.223.174",
+  user: "adminuser",
   password: "admin123",
   database: "RecipeAppDB",
 });
-
 
 app.post("/signup", async (req, res) => {
   const { username, email, password } = req.body;
@@ -42,7 +41,6 @@ app.post("/signup", async (req, res) => {
     res.status(500).send({ message: "Server error." });
   }
 });
-
 
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
@@ -73,7 +71,6 @@ app.post("/login", (req, res) => {
   );
 });
 
-
 app.get("/users", (req, res) => {
   db.query("SELECT UserID, Username, Email FROM User", (err, results) => {
     if (err) {
@@ -83,7 +80,6 @@ app.get("/users", (req, res) => {
     res.send(results);
   });
 });
-
 
 app.get("/users/:id", (req, res) => {
   const userId = req.params.id;
@@ -101,7 +97,7 @@ app.get("/users/:id", (req, res) => {
         return res.status(404).send({ message: "User not found" });
       }
 
-      res.send(results[0]); 
+      res.send(results[0]);
     }
   );
 });
@@ -115,8 +111,10 @@ app.post("/add-recipe", (req, res) => {
     cookTime,
     servings,
     imageUrl,
-    cuisine, 
+    cuisine,
     userId,
+    dietType,
+    nutrition,
   } = req.body;
 
   if (
@@ -128,14 +126,19 @@ app.post("/add-recipe", (req, res) => {
     !servings ||
     !imageUrl ||
     !cuisine ||
-    !userId
+    !userId ||
+    !dietType ||
+    !nutrition
   ) {
     return res.status(400).send({ message: "All fields are required." });
   }
 
   const insertRecipeQuery = `
-    INSERT INTO Recipe (Name, Description, PrepTime, CookTime, Servings, ImageURL, Cuisine, UserID)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Recipe (
+      Name, Description, PrepTime, CookTime, Servings, ImageURL,
+      Cuisine, UserID, DietType, Nutrition
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
@@ -149,6 +152,8 @@ app.post("/add-recipe", (req, res) => {
       imageUrl,
       cuisine,
       userId,
+      dietType,
+      nutrition,
     ],
     (err, result) => {
       if (err) {
@@ -157,12 +162,10 @@ app.post("/add-recipe", (req, res) => {
       }
 
       const recipeId = result.insertId;
-
       const ingredientNames = ingredients.split(",").map((item) => item.trim());
+
       if (ingredientNames.length === 0) {
-        return res.send({
-          message: "Recipe added successfully without ingredients.",
-        });
+        return res.send({ message: "Recipe added without ingredients." });
       }
 
       ingredientNames.forEach((ingredientName) => {
@@ -203,7 +206,7 @@ app.post("/add-recipe", (req, res) => {
   function linkIngredientToRecipe(recipeId, ingredientId) {
     const linkQuery = `
       INSERT INTO RecipeIngredient (RecipeID, IngredientID, Quantity, Unit)
-      VALUES (?, ?, 1, 'unit') 
+      VALUES (?, ?, 1, 'unit')
     `;
     db.query(linkQuery, [recipeId, ingredientId], (linkErr) => {
       if (linkErr) console.error(linkErr);
@@ -253,6 +256,68 @@ app.get("/recipes", (req, res) => {
     }
     res.status(200).json(results);
   });
+});
+
+app.delete("/recipe/:id", (req, res) => {
+  const recipeId = req.params.id;
+
+  const deleteRecipeQuery = "DELETE FROM Recipe WHERE RecipeID = ?";
+
+  db.query(deleteRecipeQuery, [recipeId], (err, result) => {
+    if (err) {
+      console.error("Error deleting recipe:", err);
+      return res.status(500).send({ message: "Error deleting recipe." });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: "Recipe not found." });
+    }
+
+    res.status(200).send({ message: "Recipe deleted successfully." });
+  });
+});
+
+app.put("/user/:id/password", async (req, res) => {
+  const userId = req.params.id;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).send({ message: "Both passwords are required." });
+  }
+
+  // Fetch user's current hashed password
+  db.query(
+    "SELECT PasswordHash FROM User WHERE UserID = ?",
+    [userId],
+    async (err, results) => {
+      if (err) return res.status(500).send({ message: "Database error." });
+      if (results.length === 0)
+        return res.status(404).send({ message: "User not found." });
+
+      const isMatch = await bcrypt.compare(
+        currentPassword,
+        results[0].PasswordHash
+      );
+      if (!isMatch) {
+        return res
+          .status(401)
+          .send({ message: "Current password is incorrect." });
+      }
+
+      const newHashed = await bcrypt.hash(newPassword, 10);
+      db.query(
+        "UPDATE User SET PasswordHash = ? WHERE UserID = ?",
+        [newHashed, userId],
+        (updateErr) => {
+          if (updateErr)
+            return res
+              .status(500)
+              .send({ message: "Error updating password." });
+          res.send({ message: "Password updated successfully." });
+        }
+      );
+    }
+  );
 });
 
 app.get("/recipe/:id", (req, res) => {
@@ -307,13 +372,12 @@ app.get("/recipes", async (req, res) => {
 });
 app.get("/search/suggestions", (req, res) => {
   const { query } = req.query;
-  
+
   if (!query || query.length < 2) {
     return res.json({ suggestions: [] });
   }
-  
+
   const promises = [
-  
     new Promise((resolve, reject) => {
       db.query(
         "SELECT DISTINCT Name as text, 'recipe' as type FROM Recipe WHERE Name LIKE ? LIMIT 5",
@@ -324,7 +388,7 @@ app.get("/search/suggestions", (req, res) => {
         }
       );
     }),
-    
+
     new Promise((resolve, reject) => {
       db.query(
         "SELECT DISTINCT Name as text, 'ingredient' as type FROM Ingredient WHERE Name LIKE ? LIMIT 5",
@@ -335,7 +399,7 @@ app.get("/search/suggestions", (req, res) => {
         }
       );
     }),
-    
+
     new Promise((resolve, reject) => {
       db.query(
         "SELECT DISTINCT Cuisine as text, 'cuisine' as type FROM Recipe WHERE Cuisine LIKE ? AND Cuisine IS NOT NULL LIMIT 5",
@@ -345,9 +409,9 @@ app.get("/search/suggestions", (req, res) => {
           else resolve(results);
         }
       );
-    })
+    }),
   ];
-  
+
   Promise.all(promises)
     .then((results) => {
       const suggestions = results.flat().slice(0, 10);
@@ -361,7 +425,7 @@ app.get("/search/suggestions", (req, res) => {
 
 app.get("/recipes/search", (req, res) => {
   const { query, sortBy, sortOrder } = req.query;
-  
+
   let sqlQuery = `
     SELECT r.* 
     FROM Recipe r
@@ -373,37 +437,41 @@ app.get("/recipes/search", (req, res) => {
       WHERE (r2.Name LIKE ? OR r2.Description LIKE ? OR r2.Cuisine LIKE ? OR i.Name LIKE ?)
     )
   `;
-  
+
   const params = [];
-  
+
   if (query) {
     params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
   } else {
     sqlQuery = `SELECT * FROM Recipe`;
   }
-  
+
   if (sortBy) {
-    const validSortColumns = ['Name', 'PrepTime', 'CookTime', 'CreatedAt'];
-    const validSortOrders = ['ASC', 'DESC'];
-    
-    const column = validSortColumns.includes(sortBy) ? sortBy : 'Name';
-    const order = validSortOrders.includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
-    
+    const validSortColumns = ["Name", "PrepTime", "CookTime", "CreatedAt"];
+    const validSortOrders = ["ASC", "DESC"];
+
+    const column = validSortColumns.includes(sortBy) ? sortBy : "Name";
+    const order = validSortOrders.includes(sortOrder?.toUpperCase())
+      ? sortOrder.toUpperCase()
+      : "ASC";
+
     sqlQuery += ` ORDER BY ${column} ${order}`;
   } else {
     sqlQuery += ` ORDER BY Name ASC`;
   }
-  
+
   console.log("Executing search query:", sqlQuery);
   console.log("With parameters:", params);
-  
+
   db.query(sqlQuery, params, (err, results) => {
     if (err) {
       console.error("Error searching recipes:", err);
       return res.status(500).send({ message: "Error searching recipes" });
     }
-    
-    console.log(`Search for "${query}" returned ${results.length} unique recipes`);
+
+    console.log(
+      `Search for "${query}" returned ${results.length} unique recipes`
+    );
     res.status(200).json(results);
   });
 });
