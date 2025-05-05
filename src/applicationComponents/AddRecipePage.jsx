@@ -34,17 +34,20 @@ export default function AddRecipePage() {
     }
 
     try {
-      const response = await axios.post("http://localhost:3000/add-recipe", {
-        recipeName: formData.recipeName,
-        description: formData.description,
-        ingredients: formData.ingredients,
-        prepTime: formData.prepTime,
-        cookTime: formData.cookTime,
-        servings: formData.servings,
-        imageUrl: formData.imageUrl,
-        userId: user.UserID,
-        cuisine: formData.cuisine,
-      });
+      const response = await axios.post(
+        "https://mydishdb-apple12345.ue.r.appspot.com/add-recipe",
+        {
+          recipeName: formData.recipeName,
+          description: formData.description,
+          ingredients: formData.ingredients,
+          prepTime: formData.prepTime,
+          cookTime: formData.cookTime,
+          servings: formData.servings,
+          imageUrl: formData.imageUrl,
+          userId: user.UserID,
+          cuisine: formData.cuisine,
+        }
+      );
 
       console.log(response.data);
       alert("Recipe submitted successfully!");

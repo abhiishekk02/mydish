@@ -8,7 +8,9 @@ export default function RecipeListPage() {
 
   useEffect(() => {
     axios
-      .get(`http://localhost:3000/recipes/cuisine/${cuisine}`)
+      .get(
+        `https://mydishdb-apple12345.ue.r.appspot.com/recipes/cuisine/${cuisine}`
+      )
       .then((res) => setRecipes(res.data))
       .catch((err) => console.error("Error loading recipes:", err));
   }, [cuisine]);

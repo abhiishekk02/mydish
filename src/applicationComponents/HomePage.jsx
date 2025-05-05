@@ -19,9 +19,10 @@ export default function HomePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchPerformed, setIsSearchPerformed] = useState(false);
+  const [maxPrepTime, setMaxPrepTime] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
   const searchRef = useRef(null);
 
-  
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser && storedUser !== "undefined") {
@@ -45,7 +46,9 @@ export default function HomePage() {
   useEffect(() => {
     const fetchAllRecipes = async () => {
       try {
-        const res = await axios.get("/recipes");
+        const res = await axios.get(
+          "https://mydishdb-apple12345.ue.r.appspot.com/recipes"
+        );
         const shuffledRecipes = [...res.data].sort(() => 0.5 - Math.random());
         setRecipes(shuffledRecipes);
       } catch (error) {
@@ -57,23 +60,25 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-   
     if (isSearchPerformed) {
       return;
     }
-    
+
     const getSuggestions = async () => {
       if (searchQuery.length < 2) {
         setSuggestions([]);
         setShowSuggestions(false);
         return;
       }
-      
+
       try {
-        const res = await axios.get("/search/suggestions", {
-          params: { query: searchQuery }
-        });
-        
+        const res = await axios.get(
+          "https://mydishdb-apple12345.ue.r.appspot.com/search/suggestions",
+          {
+            params: { query: searchQuery },
+          }
+        );
+
         if (res.data.suggestions.length > 0) {
           setSuggestions(res.data.suggestions);
           setShowSuggestions(true);
@@ -85,60 +90,59 @@ export default function HomePage() {
         setShowSuggestions(false);
       }
     };
-    
+
     const debounceTimer = setTimeout(getSuggestions, 300);
     return () => clearTimeout(debounceTimer);
   }, [searchQuery, isSearchPerformed]);
 
-  
   const handleInputChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
-    
-    
+
     if (isSearchPerformed && value !== displayedQuery) {
       setIsSearchPerformed(false);
     }
   };
 
-  
   const handleSearch = async (e) => {
     e.preventDefault();
-    
+
     if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
-    
+
     setIsSearching(true);
     setDisplayedQuery(searchQuery);
     setShowSuggestions(false);
     setIsSearchPerformed(true);
-    
+
     try {
-      
       setSearchResults([]);
-      
-      
-      const res = await axios.get("/recipes/search", { 
-        params: { 
-          query: searchQuery,
-          timestamp: new Date().getTime() 
+
+      const res = await axios.get(
+        "https://mydishdb-apple12345.ue.r.appspot.com/recipes/search",
+        {
+          params: {
+            query: searchQuery,
+            timestamp: new Date().getTime(),
+          },
         }
-      });
-      
-     
+      );
+
       const recipeMap = new Map();
-      
-      res.data.forEach(recipe => {
+
+      res.data.forEach((recipe) => {
         if (!recipeMap.has(recipe.RecipeID)) {
           recipeMap.set(recipe.RecipeID, recipe);
         }
       });
-      
+
       const uniqueResults = Array.from(recipeMap.values());
-      console.log(`Search for "${searchQuery}" returned ${uniqueResults.length} unique recipes after frontend deduplication`);
-      
+      console.log(
+        `Search for "${searchQuery}" returned ${uniqueResults.length} unique recipes after frontend deduplication`
+      );
+
       setSearchResults(uniqueResults);
       setIsSearching(false);
     } catch (error) {
@@ -147,25 +151,23 @@ export default function HomePage() {
     }
   };
 
- 
   const handleSuggestionClick = async (suggestion) => {
     const selectedQuery = suggestion.text;
     setSearchQuery(selectedQuery);
     setDisplayedQuery(selectedQuery);
     setShowSuggestions(false);
     setIsSearchPerformed(true);
-    
+
     try {
       setIsSearching(true);
-      const res = await axios.get("/recipes/search", { 
-        params: { query: selectedQuery }
+      const res = await axios.get("/recipes/search", {
+        params: { query: selectedQuery },
       });
-      
-      
+
       const uniqueResults = Array.from(
-        new Map(res.data.map(item => [item.RecipeID, item])).values()
+        new Map(res.data.map((item) => [item.RecipeID, item])).values()
       );
-      
+
       setSearchResults(uniqueResults);
       setIsSearching(false);
     } catch (error) {
@@ -174,24 +176,25 @@ export default function HomePage() {
     }
   };
 
-  
   const handleCuisineClick = async (cuisine) => {
     setSearchQuery(cuisine);
     setDisplayedQuery(cuisine);
     setShowSuggestions(false);
     setIsSearchPerformed(true);
-    
+
     try {
       setIsSearching(true);
-      const res = await axios.get("/recipes/search", { 
-        params: { query: cuisine }
-      });
-      
-     
-      const uniqueResults = Array.from(
-        new Map(res.data.map(item => [item.RecipeID, item])).values()
+      const res = await axios.get(
+        "https://mydishdb-apple12345.ue.r.appspot.com/recipes/search",
+        {
+          params: { query: cuisine },
+        }
       );
-      
+
+      const uniqueResults = Array.from(
+        new Map(res.data.map((item) => [item.RecipeID, item])).values()
+      );
+
       setSearchResults(uniqueResults);
       setIsSearching(false);
     } catch (error) {
@@ -201,8 +204,20 @@ export default function HomePage() {
   };
 
   if (!user) {
-    return null; 
+    return null;
   }
+
+  // Filter, sort, and slice the recipes for the Explore Random Recipes section
+  const filteredSortedRecipes = recipes
+    .filter((recipe) => {
+      return !maxPrepTime || recipe.PrepTime <= parseInt(maxPrepTime);
+    })
+    .sort((a, b) => {
+      return sortOrder === "asc"
+        ? a.PrepTime - b.PrepTime
+        : b.PrepTime - a.PrepTime;
+    })
+    .slice(0, 8);
 
   return (
     <>
@@ -248,7 +263,6 @@ export default function HomePage() {
             value={searchQuery}
             onChange={handleInputChange}
             onFocus={() => {
-              
               if (searchQuery.length >= 2 && !isSearchPerformed) {
                 setShowSuggestions(true);
               }
@@ -272,37 +286,45 @@ export default function HomePage() {
             <i className="fas fa-search" style={{ marginRight: "6px" }}></i>
             Search
           </button>
-          
+
           {showSuggestions && suggestions.length > 0 && !isSearchPerformed && (
-            <div 
+            <div
               className="position-absolute w-50 bg-white shadow-sm rounded-bottom border"
-              style={{ 
+              style={{
                 zIndex: 1000,
                 maxHeight: "300px",
                 overflowY: "auto",
-                top: "45px"
+                top: "45px",
               }}
             >
               {suggestions.map((suggestion, index) => (
-                <div 
+                <div
                   key={index}
                   className="p-2 border-bottom suggestion-item"
                   onClick={() => handleSuggestionClick(suggestion)}
-                  style={{ 
+                  style={{
                     cursor: "pointer",
                     display: "flex",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#f8f9fa"}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  onMouseOver={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#f8f9fa")
+                  }
+                  onMouseOut={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
                 >
-                  <i className={`me-2 fas ${
-                    suggestion.type === 'recipe' ? 'fa-utensils' : 
-                    suggestion.type === 'ingredient' ? 'fa-carrot' : 
-                    'fa-globe'
-                  }`}></i>
+                  <i
+                    className={`me-2 fas ${
+                      suggestion.type === "recipe"
+                        ? "fa-utensils"
+                        : suggestion.type === "ingredient"
+                        ? "fa-carrot"
+                        : "fa-globe"
+                    }`}
+                  ></i>
                   <span>
-                    {suggestion.text} 
+                    {suggestion.text}
                     <small className="text-muted ms-2">
                       ({suggestion.type})
                     </small>
@@ -317,17 +339,18 @@ export default function HomePage() {
       {searchResults.length > 0 && (
         <div className="container my-4">
           <h3 className="fw-bold mb-3" style={{ color: "#2A2E81" }}>
-            {isSearching 
-              ? "Searching..." 
+            {isSearching
+              ? "Searching..."
               : `Search Results for "${displayedQuery}"`}
           </h3>
-          
+
           {!isSearching && (
             <p className="text-muted mb-3">
-              Found {searchResults.length} {searchResults.length === 1 ? "recipe" : "recipes"}
+              Found {searchResults.length}{" "}
+              {searchResults.length === 1 ? "recipe" : "recipes"}
             </p>
           )}
-          
+
           <div className="row">
             {isSearching ? (
               <div className="col-12 text-center my-5">
@@ -347,8 +370,12 @@ export default function HomePage() {
                       transition: "transform 0.2s",
                     }}
                     onClick={() => navigate(`/recipe/${recipe.RecipeID}`)}
-                    onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-5px)"}
-                    onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.transform = "translateY(-5px)")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.transform = "translateY(0)")
+                    }
                   >
                     <div className="position-relative">
                       <img
@@ -363,7 +390,7 @@ export default function HomePage() {
                         }}
                       />
                       {recipe.Cuisine && (
-                        <span 
+                        <span
                           className="position-absolute top-0 end-0 badge rounded-pill bg-light text-dark m-2"
                           style={{ fontSize: "0.7rem" }}
                         >
@@ -374,11 +401,19 @@ export default function HomePage() {
                     <div className="card-body">
                       <h5 className="card-title">{recipe.Name}</h5>
                       <div className="d-flex justify-content-between">
-                        <p className="card-text" style={{ fontSize: "14px", color: "#777" }}>
-                          <i className="far fa-clock me-1"></i> {recipe.PrepTime + recipe.CookTime} mins
+                        <p
+                          className="card-text"
+                          style={{ fontSize: "14px", color: "#777" }}
+                        >
+                          <i className="far fa-clock me-1"></i>{" "}
+                          {recipe.PrepTime + recipe.CookTime} mins
                         </p>
-                        <p className="card-text" style={{ fontSize: "14px", color: "#777" }}>
-                          <i className="fas fa-utensils me-1"></i> {recipe.Servings} servings
+                        <p
+                          className="card-text"
+                          style={{ fontSize: "14px", color: "#777" }}
+                        >
+                          <i className="fas fa-utensils me-1"></i>{" "}
+                          {recipe.Servings} servings
                         </p>
                       </div>
                     </div>
@@ -387,18 +422,20 @@ export default function HomePage() {
               ))
             )}
           </div>
-          
+
           {/* View more button for search results */}
           {searchResults.length > 4 && (
             <div className="text-center mt-2 mb-4">
-              <button 
+              {/* <button
                 className="btn btn-outline-dark rounded-pill px-4 py-2"
-                onClick={() => navigate("/all-recipes", { 
-                  state: { searchQuery: displayedQuery } 
-                })}
+                onClick={() =>
+                  navigate("/all-recipes", {
+                    state: { searchQuery: displayedQuery },
+                  })
+                }
               >
                 View All Results
-              </button>
+              </button> */}
             </div>
           )}
         </div>
@@ -524,11 +561,37 @@ export default function HomePage() {
         <h3 className="fw-bold mb-4" style={{ color: "#2A2E81" }}>
           Explore Random Recipes
         </h3>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <label className="me-2">Max Prep Time (mins):</label>
+            <input
+              type="number"
+              min="0"
+              value={maxPrepTime}
+              onChange={(e) => setMaxPrepTime(e.target.value)}
+              className="form-control d-inline-block"
+              style={{ width: "100px", display: "inline-block" }}
+            />
+          </div>
+
+          <div>
+            <label className="me-2">Sort by Prep Time:</label>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="form-select d-inline-block"
+              style={{ width: "120px", display: "inline-block" }}
+            >
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+          </div>
+        </div>
         <div className="row">
           {recipes.length === 0 ? (
             <p>No recipes available.</p>
           ) : (
-            recipes.slice(0, 8).map((recipe) => (
+            filteredSortedRecipes.map((recipe) => (
               <div className="col-md-3 mb-4" key={recipe.RecipeID}>
                 <div
                   className="card h-100"

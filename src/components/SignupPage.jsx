@@ -15,11 +15,14 @@ export default function SignupPage(params) {
       return;
     }
     try {
-      const response = await axios.post("http://localhost:3000/signup", {
-        username,
-        email,
-        password,
-      });
+      const response = await axios.post(
+        "https://mydishdb-apple12345.ue.r.appspot.com/signup",
+        {
+          username,
+          email,
+          password,
+        }
+      );
       alert(response.data.message);
     } catch (error) {
       console.error(error);

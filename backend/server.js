@@ -117,22 +117,6 @@ app.post("/add-recipe", (req, res) => {
     nutrition,
   } = req.body;
 
-  if (
-    !recipeName ||
-    !description ||
-    !ingredients ||
-    !prepTime ||
-    !cookTime ||
-    !servings ||
-    !imageUrl ||
-    !cuisine ||
-    !userId ||
-    !dietType ||
-    !nutrition
-  ) {
-    return res.status(400).send({ message: "All fields are required." });
-  }
-
   const insertRecipeQuery = `
     INSERT INTO Recipe (
       Name, Description, PrepTime, CookTime, Servings, ImageURL,

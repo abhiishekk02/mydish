@@ -17,7 +17,7 @@ export default function LoginPage(params) {
     }
     try {
       const response = await axios.post(
-        "http://localhost:3000/login",
+        "https://mydishdb-apple12345.ue.r.appspot.com/login",
         { email, password },
         { headers: { "Content-Type": "application/json" } } // ADD THIS
       );

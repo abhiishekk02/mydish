@@ -1,0 +1,7 @@
+runtime: nodejs18
+entrypoint: node server.js
+
+env_variables:
+  NODE_ENV: production
+
+instance_class: F1

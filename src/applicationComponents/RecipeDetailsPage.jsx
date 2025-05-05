@@ -10,7 +10,9 @@ export default function RecipeDetailsPage() {
   useEffect(() => {
     const fetchRecipe = async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/recipe/${id}`);
+        const res = await axios.get(
+          `https://mydishdb-apple12345.ue.r.appspot.com/recipe/${id}`
+        );
         setRecipe(res.data);
       } catch (err) {
         console.error("Error fetching recipe:", err);

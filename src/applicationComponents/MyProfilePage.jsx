@@ -25,7 +25,7 @@ export default function MyProfilePage() {
 
     try {
       const res = await axios.put(
-        `http://localhost:3000/user/${user.UserID}/password`,
+        `https://mydishdb-apple12345.ue.r.appspot.com/user/${user.UserID}/password`,
         {
           currentPassword,
           newPassword,
@@ -43,7 +43,9 @@ export default function MyProfilePage() {
 
   const fetchUserRecipes = (userId) => {
     axios
-      .get(`http://localhost:3000/recipes/user/${userId}`)
+      .get(
+        `https://mydishdb-apple12345.ue.r.appspot.com/recipes/user/${userId}`
+      )
       .then((response) => {
         setRecipes(response.data);
       })
@@ -55,7 +57,9 @@ export default function MyProfilePage() {
   const handleDelete = (recipeId) => {
     if (window.confirm("Are you sure you want to delete this recipe?")) {
       axios
-        .delete(`http://localhost:3000/recipe/${recipeId}`)
+        .delete(
+          `https://mydishdb-apple12345.ue.r.appspot.com/recipe/${recipeId}`
+        )
         .then(() => {
           alert("Recipe deleted successfully.");
           setRecipes(recipes.filter((r) => r.RecipeID !== recipeId));
